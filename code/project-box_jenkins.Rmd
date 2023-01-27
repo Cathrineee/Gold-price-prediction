@@ -1,0 +1,125 @@
+---
+title: "project"
+author: "Xinjie Qiao"
+date: "30/11/2022"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+data <- read.csv("../data.csv", header=T)[c("Date", "Switzerland.CHF.")]
+head(data)
+time <- data$Date
+price <- ts(data$Switzerland.CHF., start=c(1979, 1), end=c(2021, 7), frequency=12)
+plot(price)
+acf(price, lag.max = 60)
+```
+
+We observed a slow decay from acf plot of price, so there is a trend in the data and it means the data is not stationary.\
+
+```{r}
+train = window(price, start = c(1979, 1), end = c(2017, 3)) #90%
+test = window(price, start = c(2017, 4), end = c(2021, 7)) #10%
+```
+
+```{r}
+#one regular differencing
+diff1 = diff(train)
+plot(diff1)
+acf(diff1, lag.max = 60)
+pacf(diff1, lag.max = 60)
+```
+
+Based on the acf, there is no obvious trend, and it becomes stationary.\
+
+$$
+Y_t = \nabla X_t = (1-B)X_t = X_t - X_{t-1}
+$$
+
+There are no significant seasonal lags in acf and pacf.\
+For non-seasonal lags, acf and pacf both tails off, proposed model1 with p = q = 1.\
+Model2 with p = 0, q = 1.\
+Model3 with p = 1, q = 0
+
+
+```{r}
+library(astsa)
+model1 = sarima(train, p=1, d=1, q=1)
+model2 = sarima(train, p=0, d=1, q=1)
+model3 = sarima(train, p=1, d=1, q=0)
+```
+
+
+```{r}
+pred_model1 = sarima.for(train, p=1, d=1, q=1, n.ahead = 52)
+pred_model2 = sarima.for(train, p=0, d=1, q=1, n.ahead = 52)
+pred_model3 = sarima.for(train, p=1, d=1, q=0, n.ahead = 52)
+
+ds1 = data.frame(
+  Model = c("sarima(1,1,1)", "sarima(0,1,1)", "sarima(1,1,0)"),
+  MSE = c(mean((pred_model1$pred - test)^2),
+          mean((pred_model2$pred - test)^2),
+          mean((pred_model3$pred - test)^2)),
+  AIC = c(model1$AIC, model2$AIC, model3$AIC),
+  AICc = c(model1$AICc, model2$AICc, model3$AICc),
+  BIC = c(model1$BIC,
+          model2$BIC,
+          model3$BIC)
+)
+ds1
+
+#residual diagnostic of arima(0,1,1)
+fit_train = train-model2$fit$residuals
+par(mfrow=c(2,2))
+plot(train, fit_train, xlab="Observed values", ylab="Fitted values")
+abline(coef = c(0,1), col="red")
+plot(fit_train, model2$fit$residuals, xlab="Fitted values", ylab="Residuals")
+abline(h=0, col="red")
+plot(model2$fit$residuals, ylab="Residuals")
+abline(h=0, col="red")
+car::qqPlot(model2$fit$residuals, pch=16, col=adjustcolor("black", 0.7),
+            xlab = "Theoretical Quantiles (Normal)",
+            ylab = "Sample Quantiles (r.hat)",
+            main = "Normal Q-Q Plot")
+
+#assumption test
+shapiro.test(model2$fit$residuals)
+randtests::difference.sign.test(model2$fit$residuals)
+```
+
+```{r}
+#fit to all data
+final_arima1 = sarima(price, p=0, d=1, q=1)
+par(mfrow=c(2,1))
+acf(final_arima1$fit$residuals)
+pacf(final_arima1$fit$residuals)
+fit_val = price-final_arima1$fit$residuals
+
+#MSE, AIC, BIC
+ds2 = data.frame(
+  Model = c("arima(0,1,1)"),
+  MSE = c(mean((fit_val - price)^2)),
+  AIC = c(final_arima1$AIC),
+  AICc = c(final_arima1$AICc),
+  BIC = c(final_arima1$BIC)
+)
+ds2
+```
+
+
+
+```{r}
+pred = sarima.for(price,p=0, d=1, q=1, n.ahead = 29)
+
+lower <- pred$pred-1.96*pred$se
+upper <- pred$pred+1.96*pred$se
+x = c(time(upper) , rev(time(upper)))
+y = c(upper , rev(lower))
+plot(price, xlim = c(1979,2024), ylim = c(370, 2100))
+polygon(x, y, col = "grey" , border =NA)
+lines(pred$pred, col = "red")
+```
+
