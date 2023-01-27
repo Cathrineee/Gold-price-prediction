@@ -17,7 +17,7 @@ Other contributor of this projects are [Zoe Zou](https://www.linkedin.com/in/zoe
 
 We used data from Kaggle:
 
-Hasija, S. (2021). \textit{Monthly Gold Prices (1979-2021)}. Kaggle. https://www.kaggle.com/datasets/odins0n/monthly-gold-prices?select=1979-2021.csv
+Hasija, S. (2021). *Monthly Gold Prices (1979-2021)*. Kaggle. https://www.kaggle.com/datasets/odins0n/monthly-gold-prices?select=1979-2021.csv
 
 
 
